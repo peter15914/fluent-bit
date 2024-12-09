@@ -424,7 +424,7 @@ flb_sds_t agent_config_filename(struct calyptia *ctx, char *fname)
         return NULL;
     }
 
-    ret = flb_sds_printf(&cfgname, PATH_SEPARATOR "%s.conf", fname);
+    ret = flb_sds_printf(&cfgname, PATH_SEPARATOR "%s.yaml", fname);
     if (ret == NULL) {
         flb_sds_destroy(cfgname);
         return NULL;
