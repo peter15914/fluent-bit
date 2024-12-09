@@ -258,7 +258,7 @@ static flb_sds_t fleet_config_filename(struct flb_in_calyptia_fleet_config *ctx,
         return NULL;
     }
 
-    ret = flb_sds_printf(&cfgname, PATH_SEPARATOR "%s.conf", fname);
+    ret = flb_sds_printf(&cfgname, PATH_SEPARATOR "%s.yaml", fname);
     if (ret == NULL) {
         flb_sds_destroy(cfgname);
         return NULL;
