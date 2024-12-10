@@ -27,8 +27,11 @@
 #include <fluent-bit/flb_lua.h>
 
 #define LUA_BUFFER_CHUNK    1024 * 8  /* 8K should be enough to get started */
+#define LUA_API_V1          1
+#define LUA_API_V2          2
 
 struct lua_filter {
+    flb_sds_t api_version_str;        /* API version string */
     flb_sds_t code;                   /* lua script source code */
     flb_sds_t script;                 /* lua script path */
     flb_sds_t call;                   /* function name   */
@@ -36,6 +39,7 @@ struct lua_filter {
     int    protected_mode;            /* exec lua function in protected mode */
     int    time_as_table;             /* timestamp as a Lua table */
     int    enable_flb_null;           /* Use flb_null in Lua */
+    int    api_version;
     struct flb_lua_l2c_config l2cc;   /* lua -> C config */
     struct flb_luajit *lua;           /* state context   */
     struct flb_filter_instance *ins;  /* filter instance */

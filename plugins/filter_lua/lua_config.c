@@ -67,6 +67,19 @@ struct lua_filter *lua_config_create(struct flb_filter_instance *ins,
     lf->ins = ins;
     lf->script = NULL;
 
+    /* api version */
+    if (strcmp(lf->api_version_str, "v1") == 0) {
+        lf->api_version = LUA_API_V1;
+    }
+    else if (strcmp(lf->api_version_str, "v2") == 0) {
+        lf->api_version = LUA_API_V2;
+    }
+    else {
+        flb_plg_error(lf->ins, "invalid API version '%s'", lf->api_version_str);
+        flb_free(lf);
+        return NULL;
+    }
+
     /* config: code */
     tmp = flb_filter_get_property("code", ins);
     if (tmp) {
