@@ -2349,6 +2349,11 @@ static struct flb_config_map config_map[] = {
       0, FLB_TRUE, offsetof(struct flb_in_calyptia_fleet_config, interval_nsec),
       "Set the collector interval (nanoseconds)"
     },
+    {
+     FLB_CONFIG_MAP_BOOL, "fleet_config_legacy_format", "true",
+     0, FLB_TRUE, offsetof(struct flb_in_calyptia_fleet_config, fleet_config_legacy_format),
+     "If set, use legacy (TOML) format for configuration files."
+    },
     /* EOF */
     {0}
 };
