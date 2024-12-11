@@ -160,13 +160,13 @@ void test_set_fleet_input_properties()
     TEST_MSG("max_http_buffer_size expected=%s got=%s", t_ctx->ctx->fleet_max_http_buffer_size, value);
     TEST_CHECK(value && strcmp(value, t_ctx->ctx->fleet_max_http_buffer_size) == 0);
 
-    // /* Check interval_sec */
+    /* Check interval_sec */
     value = flb_input_get_property("interval_sec", t_ctx->fleet);
     TEST_CHECK(value != NULL);
     TEST_MSG("interval_sec expected=%s got=%s", t_ctx->ctx->fleet_interval_sec, value);
     TEST_CHECK(value && strcmp(value, t_ctx->ctx->fleet_interval_sec) == 0);
 
-    // /* Check interval_nsec */
+    /* Check interval_nsec */
     value = flb_input_get_property("interval_nsec", t_ctx->fleet);
     TEST_CHECK(value != NULL);
     TEST_MSG("interval_nsec expected=%s got=%s", t_ctx->ctx->fleet_interval_nsec, value);
@@ -276,9 +276,38 @@ static void test_calyptia_machine_id_generation() {
     cleanup_test_context(t_ctx);
 }
 
+static void test_calyptia_config_format() {
+    struct test_context *t_ctx = init_test_context();
+    TEST_CHECK(t_ctx != NULL);
+
+    int ret = set_fleet_input_properties(t_ctx->ctx, t_ctx->fleet);
+    TEST_CHECK(ret == 0);
+
+    /* Verify properties were set correctly */
+    const char *value;
+
+    /* Default is true */
+    value = flb_input_get_property("fleet_config_legacy_format", t_ctx->fleet);
+    TEST_CHECK(value != NULL);
+    TEST_MSG("fleet_config_legacy_format default expected=%s got=%s", 'on', value);
+    TEST_CHECK(value && strcasecmp(value, 'on') == 0);
+
+    t_ctx->ctx->fleet_config_legacy_format = FLB_FALSE;
+    ret = set_fleet_input_properties(t_ctx->ctx, t_ctx->fleet);
+    TEST_CHECK(ret == 0);
+
+    value = flb_input_get_property("fleet_config_legacy_format", t_ctx->fleet);
+    TEST_CHECK(value != NULL);
+    TEST_MSG("fleet_config_legacy_format default expected=%s got=%s", 'off', value);
+    TEST_CHECK(value && strcasecmp(value, 'off') == 0);
+
+    cleanup_test_context(t_ctx);
+}
+
 /* Define test list */
 TEST_LIST = {
     {"set_fleet_input_properties", test_set_fleet_input_properties},
     {"machine_id_generation", test_calyptia_machine_id_generation},
+    {"set_fleet_config_format", test_calyptia_config_format},
     {NULL, NULL}
 };
