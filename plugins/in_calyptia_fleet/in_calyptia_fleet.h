@@ -52,6 +52,9 @@ struct flb_in_calyptia_fleet_config {
     flb_sds_t fleet_url;
     flb_sds_t fleet_files_url;
 
+    /* whether to use legacy INI/TOML or YAML format */
+    int fleet_config_legacy_format;
+
     struct flb_input_instance *ins;       /* plugin instance */
 
     /* Networking */

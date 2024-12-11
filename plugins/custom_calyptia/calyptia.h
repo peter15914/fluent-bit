@@ -53,7 +53,8 @@ struct calyptia {
     flb_sds_t fleet_max_http_buffer_size;
     flb_sds_t fleet_interval_sec;
     flb_sds_t fleet_interval_nsec;
-    int register_retry_on_flush;   /* retry registration on flush if failed */
+    int register_retry_on_flush;          /* retry registration on flush if failed */
+    int fleet_config_legacy_format;       /* Fleet config format to use: INI (true) or YAML (false) */
 };
 
 int set_fleet_input_properties(struct calyptia *ctx, struct flb_input_instance *fleet);

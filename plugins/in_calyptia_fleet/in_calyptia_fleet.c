@@ -201,7 +201,12 @@ static flb_sds_t fleet_config_filename(struct flb_in_calyptia_fleet_config *ctx,
         return NULL;
     }
 
-    ret = flb_sds_printf(&cfgname, PATH_SEPARATOR "%s.yaml", fname);
+    if (ctx->fleet_config_legacy_format) {
+        ret = flb_sds_printf(&cfgname, PATH_SEPARATOR "%s.conf", fname);
+    } else {
+        ret = flb_sds_printf(&cfgname, PATH_SEPARATOR "%s.yaml", fname);
+    }
+
     if (ret == NULL) {
         flb_sds_destroy(cfgname);
         return NULL;
@@ -309,7 +314,7 @@ static int is_timestamped_fleet_config_path(struct flb_in_calyptia_fleet_config 
     char *end;
     long val;
 
-    if (path == NULL) {
+    if (path == NULL || ctx == NULL) {
         return FLB_FALSE;
     }
 
@@ -327,7 +332,12 @@ static int is_timestamped_fleet_config_path(struct flb_in_calyptia_fleet_config 
         return FLB_FALSE;
     }
 
-    if (strcmp(end, ".yaml") == 0) {
+    if (ctx->fleet_config_legacy_format) {
+        if (strcmp(end, ".conf") == 0) {
+           return FLB_TRUE;
+        }
+    }
+    else if (strcmp(end, ".yaml") == 0) {
         return FLB_TRUE;
     }
 
@@ -471,7 +481,7 @@ static int test_config_is_valid(struct flb_in_calyptia_fleet_config *ctx,
 
     conf = flb_cf_create();
     if (conf == NULL) {
-        flb_plg_debug(ctx->ins, "unable to create conf during validation test: %s",
+        flb_plg_debug(ctx->ins, "unable to create config during validation test: %s",
                       cfgpath);
         goto config_init_error;
     }
@@ -479,7 +489,7 @@ static int test_config_is_valid(struct flb_in_calyptia_fleet_config *ctx,
     conf = flb_cf_create_from_file(conf, cfgpath);
     if (conf == NULL) {
         flb_plg_debug(ctx->ins,
-                      "unable to create conf from file during validation test: %s",
+                      "unable to create config from file during validation test: %s",
                       cfgpath);
         goto cf_create_from_file_error;
     }
@@ -1292,7 +1302,12 @@ static int calyptia_config_delete_old(struct flb_in_calyptia_fleet_config *ctx)
         return -1;
     }
 
-    if (flb_sds_cat_safe(&glob_files, PATH_SEPARATOR "*.yaml", strlen(PATH_SEPARATOR "*.yaml")) != 0) {
+    if (ctx->fleet_config_legacy_format) {
+        if (flb_sds_cat_safe(&glob_files, PATH_SEPARATOR "*.conf", strlen(PATH_SEPARATOR "*.conf")) != 0) {
+            flb_sds_destroy(glob_files);
+            return -1;
+        }
+    } else if (flb_sds_cat_safe(&glob_files, PATH_SEPARATOR "*.yaml", strlen(PATH_SEPARATOR "*.yaml")) != 0) {
         flb_sds_destroy(glob_files);
         return -1;
     }
@@ -1356,7 +1371,13 @@ static flb_sds_t calyptia_config_get_newest(struct flb_in_calyptia_fleet_config 
         return NULL;
     }
 
-    if (flb_sds_cat_safe(&glob_conf_files, PATH_SEPARATOR "*.yaml", strlen(PATH_SEPARATOR "*.yaml")) != 0) {
+    if (ctx->fleet_config_legacy_format) {
+        if (flb_sds_cat_safe(&glob_conf_files, PATH_SEPARATOR "*.conf", strlen(PATH_SEPARATOR "*.conf")) != 0) {
+            flb_plg_error(ctx->ins, "unable to concatenate fleet glob");
+            flb_sds_destroy(glob_conf_files);
+            return NULL;
+        }
+    } else if (flb_sds_cat_safe(&glob_conf_files, PATH_SEPARATOR "*.yaml", strlen(PATH_SEPARATOR "*.yaml")) != 0) {
         flb_plg_error(ctx->ins, "unable to concatenate fleet glob");
         flb_sds_destroy(glob_conf_files);
         return NULL;
@@ -1364,7 +1385,7 @@ static flb_sds_t calyptia_config_get_newest(struct flb_in_calyptia_fleet_config 
 
     inis = read_glob(glob_conf_files);
     if (inis == NULL) {
-        flb_plg_error(ctx->ins, "unable to read fleet directory for conf files: %s",
+        flb_plg_error(ctx->ins, "unable to read fleet directory for config files: %s",
                       glob_conf_files);
         flb_sds_destroy(glob_conf_files);
         return NULL;
@@ -1551,7 +1572,7 @@ static int calyptia_config_rollback(struct flb_in_calyptia_fleet_config *ctx,
 }
 #endif
 
-static void fleet_config_get_properties(flb_sds_t *buf, struct mk_list *props)
+static void fleet_config_get_properties(flb_sds_t *buf, struct mk_list *props, int fleet_config_legacy_format)
 {
     struct mk_list *head;
     struct flb_kv *kv;
@@ -1560,7 +1581,11 @@ static void fleet_config_get_properties(flb_sds_t *buf, struct mk_list *props)
         kv = mk_list_entry(head, struct flb_kv, _head);
 
         if (kv->key != NULL && kv->val != NULL) {
-            flb_sds_printf(buf, "      %s: ", kv->key);
+            if (fleet_config_legacy_format) {
+                flb_sds_printf(buf, "    %s ", kv->key);
+            } else {
+                flb_sds_printf(buf, "      %s: ", kv->key);
+            }
             flb_sds_cat_safe(buf, kv->val, strlen(kv->val));
             flb_sds_cat_safe(buf, "\n", 1);
         }
@@ -1630,6 +1655,9 @@ flb_sds_t fleet_config_get(struct flb_in_calyptia_fleet_config *ctx)
     flb_ctx_t *flb = flb_context_get();
     flb_sds_t fleet_id = NULL;
 
+    if( !ctx ) {
+        return NULL;
+    }
 
     buf = flb_sds_create_size(2048);
 
@@ -1642,14 +1670,23 @@ flb_sds_t fleet_config_get(struct flb_in_calyptia_fleet_config *ctx)
         if (strcasecmp(c_ins->p->name, "calyptia")) {
             continue;
         }
-        flb_sds_printf(&buf, "customs:\n");
-        flb_sds_printf(&buf, "    - name: %s\n", c_ins->p->name);
+        if (ctx->fleet_config_legacy_format) {
+            flb_sds_printf(&buf, "[CUSTOM]\n");
+            flb_sds_printf(&buf, "    name %s\n", c_ins->p->name);
+        } else {
+            flb_sds_printf(&buf, "customs:\n");
+            flb_sds_printf(&buf, "    - name: %s\n", c_ins->p->name);
+        }
 
-        fleet_config_get_properties(&buf, &c_ins->properties);
+        fleet_config_get_properties(&buf, &c_ins->properties, ctx->fleet_config_legacy_format);
 
         if (flb_config_prop_get("fleet_id", &c_ins->properties) == NULL) {
             if (ctx->fleet_id != NULL) {
-                flb_sds_printf(&buf, "      fleet_id: %s\n", ctx->fleet_id);
+                if (ctx->fleet_config_legacy_format) {
+                    flb_sds_printf(&buf, "    fleet_id %s\n", ctx->fleet_id);
+                } else {
+                    flb_sds_printf(&buf, "      fleet_id: %s\n", ctx->fleet_id);
+                }
             }
             else {
                 fleet_id = get_fleet_id_from_header(ctx);
@@ -1659,7 +1696,11 @@ flb_sds_t fleet_config_get(struct flb_in_calyptia_fleet_config *ctx)
                     return NULL;
                 }
 
-                flb_sds_printf(&buf, "      fleet_id: %s\n", ctx->fleet_id);
+                if (ctx->fleet_config_legacy_format) {
+                    flb_sds_printf(&buf, "    fleet_id %s\n", fleet_id);
+                } else {
+                    flb_sds_printf(&buf, "      fleet_id: %s\n", fleet_id);
+                }
                 flb_sds_destroy(fleet_id);
             }
         }
@@ -1724,7 +1765,11 @@ static int get_calyptia_fleet_config(struct flb_in_calyptia_fleet_config *ctx)
             return -1;
         }
 
-        flb_sds_printf(&ctx->fleet_url, CALYPTIA_ENDPOINT_FLEET_CONFIG_YAML, ctx->fleet_id);
+        if (ctx->fleet_config_legacy_format) {
+            flb_sds_printf(&ctx->fleet_url, CALYPTIA_ENDPOINT_FLEET_CONFIG_INI, ctx->fleet_id);
+        } else {
+            flb_sds_printf(&ctx->fleet_url, CALYPTIA_ENDPOINT_FLEET_CONFIG_YAML, ctx->fleet_id);
+        }
     }
 
     if (ctx->fleet_files_url == NULL) {
@@ -1741,7 +1786,11 @@ static int get_calyptia_fleet_config(struct flb_in_calyptia_fleet_config *ctx)
 
     hdrname = fleet_config_filename(ctx, "header");
     header = flb_sds_create_size(CALYPTIA_MAX_DIR_SIZE);
-    flb_sds_printf(&header, "includes: \n    - %s\n", hdrname);
+    if (ctx->fleet_config_legacy_format) {
+        flb_sds_printf(&header, "@include %s\n\n", hdrname);
+    } else {
+        flb_sds_printf(&header, "includes: \n    - %s\n", hdrname);
+    }
     flb_sds_destroy(hdrname);
 
     /* create the base file. */
