@@ -67,6 +67,7 @@ static struct test_context *init_test_context()
     t_ctx->ctx->fleet_max_http_buffer_size = flb_strdup("1024");
     t_ctx->ctx->fleet_interval_sec = flb_strdup("60");
     t_ctx->ctx->fleet_interval_nsec = flb_strdup("500000000");
+    t_ctx->ctx->fleet_config_legacy_format = FLB_TRUE;
 
     t_ctx->fleet = flb_input_new(t_ctx->config, "calyptia_fleet", NULL, FLB_FALSE);
     if (!t_ctx->fleet) {
@@ -285,21 +286,26 @@ static void test_calyptia_config_format() {
 
     /* Verify properties were set correctly */
     const char *value;
+    char *expectedValue = flb_strdup("on");
 
     /* Default is true */
     value = flb_input_get_property("fleet_config_legacy_format", t_ctx->fleet);
     TEST_CHECK(value != NULL);
-    TEST_MSG("fleet_config_legacy_format default expected=%s got=%s", 'on', value);
-    TEST_CHECK(value && strcasecmp(value, 'on') == 0);
+    TEST_MSG("fleet_config_legacy_format default expected=%s got=%s", expectedValue, value);
+    TEST_CHECK(value && strcasecmp(value, expectedValue) == 0);
 
+    /* Check for change to disabling */
     t_ctx->ctx->fleet_config_legacy_format = FLB_FALSE;
     ret = set_fleet_input_properties(t_ctx->ctx, t_ctx->fleet);
     TEST_CHECK(ret == 0);
 
+    flb_free(expectedValue);
+    expectedValue = flb_strdup("off");
+
     value = flb_input_get_property("fleet_config_legacy_format", t_ctx->fleet);
     TEST_CHECK(value != NULL);
-    TEST_MSG("fleet_config_legacy_format default expected=%s got=%s", 'off', value);
-    TEST_CHECK(value && strcasecmp(value, 'off') == 0);
+    TEST_MSG("fleet_config_legacy_format changed expected=%s got=%s", expectedValue, value);
+    TEST_CHECK(value && strcasecmp(value, expectedValue) == 0);
 
     cleanup_test_context(t_ctx);
 }
