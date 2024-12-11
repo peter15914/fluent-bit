@@ -617,7 +617,7 @@ static int cb_calyptia_init(struct flb_custom_instance *ins,
             flb_free(ctx);
             return -1;
         }
-        ctx->machine_id_auto_configured = 1;
+        ctx->machine_id_auto_configured = FLB_TRUE;
     }
 
     /* input collector */
