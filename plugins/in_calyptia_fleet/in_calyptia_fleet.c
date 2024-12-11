@@ -42,6 +42,8 @@
 
 #include <fluent-bit/calyptia/calyptia_constants.h>
 
+#include "in_calyptia_fleet.h"
+
 /* Glob support */
 #ifndef _MSC_VER
 #include <glob.h>
@@ -53,69 +55,10 @@
 #define PATH_MAX MAX_PATH
 #endif
 
-#define CALYPTIA_HEADERS_PROJECT       "X-Project-Token"
-#define CALYPTIA_HEADERS_CTYPE         "Content-Type"
-#define CALYPTIA_HEADERS_CTYPE_JSON    "application/json"
-
 #define DEFAULT_INTERVAL_SEC  "15"
 #define DEFAULT_INTERVAL_NSEC "0"
 
 #define DEFAULT_MAX_HTTP_BUFFER_SIZE "10485760"
-
-struct flb_in_calyptia_fleet_config {
-    /* Time interval check */
-    int interval_sec;
-    int interval_nsec;
-
-    /* maximum http buffer size */
-    int max_http_buffer_size;
-
-    /* Grabbed from the cfg_path, used to check if configuration has
-     * has been updated.
-     */
-    long config_timestamp;
-
-    flb_sds_t api_key;
-
-    flb_sds_t fleet_id;
-
-    /* flag used to mark fleet_id for release when found automatically. */
-    int fleet_id_found;
-
-    flb_sds_t fleet_name;
-    flb_sds_t machine_id;
-    flb_sds_t config_dir;
-    flb_sds_t cloud_host;
-    flb_sds_t cloud_port;
-
-    flb_sds_t fleet_url;
-    flb_sds_t fleet_files_url;
-
-    struct flb_input_instance *ins;       /* plugin instance */
-
-    /* Networking */
-    struct flb_upstream *u;
-
-    int collect_fd;
-};
-
-struct reload_ctx {
-    flb_ctx_t *flb;
-    flb_sds_t cfg_path;
-};
-
-static flb_sds_t fleet_config_filename(struct flb_in_calyptia_fleet_config *ctx, char *fname);
-
-#define new_fleet_config_filename(a) fleet_config_filename((a), "new")
-#define cur_fleet_config_filename(a) fleet_config_filename((a), "cur")
-#define old_fleet_config_filename(a) fleet_config_filename((a), "old")
-#define hdr_fleet_config_filename(a) fleet_config_filename((a), "header")
-
-static int get_calyptia_files(struct flb_in_calyptia_fleet_config *ctx,
-                              const char *url,
-                              time_t timestamp);
-
-static int fleet_cur_chdir(struct flb_in_calyptia_fleet_config *ctx);
 
 #ifndef FLB_SYSTEM_WINDOWS
 
@@ -231,7 +174,7 @@ static flb_sds_t generate_base_fleet_directory(struct flb_in_calyptia_fleet_conf
     }
 
     if (*fleet_dir == NULL) {
-        *fleet_dir = flb_sds_create_size(4096);
+        *fleet_dir = flb_sds_create_size(CALYPTIA_MAX_DIR_SIZE);
         if (*fleet_dir == NULL) {
             return NULL;
         }
@@ -555,7 +498,7 @@ static int parse_config_name_timestamp(struct flb_in_calyptia_fleet_config *ctx,
 {
     char *ext = NULL;
     long timestamp;
-    char realname[4096] = {0};
+    char realname[CALYPTIA_MAX_DIR_SIZE] = {0};
     char *fname;
     ssize_t len;
 
@@ -957,7 +900,7 @@ static int get_calyptia_fleet_id_by_name(struct flb_in_calyptia_fleet_config *ct
         return -1;
     }
 
-    url = flb_sds_create_size(4096);
+    url = flb_sds_create_size(CALYPTIA_MAX_DIR_SIZE);
     if (url == NULL) {
         flb_sds_destroy(project_id);
         return -1;
@@ -1775,7 +1718,7 @@ static int get_calyptia_fleet_config(struct flb_in_calyptia_fleet_config *ctx)
     int ret = -1;
 
     if (ctx->fleet_url == NULL) {
-        ctx->fleet_url = flb_sds_create_size(4096);
+        ctx->fleet_url = flb_sds_create_size(CALYPTIA_MAX_DIR_SIZE);
 
         if (ctx->fleet_url == NULL) {
             return -1;
@@ -1785,7 +1728,7 @@ static int get_calyptia_fleet_config(struct flb_in_calyptia_fleet_config *ctx)
     }
 
     if (ctx->fleet_files_url == NULL) {
-        ctx->fleet_files_url = flb_sds_create_size(4096);
+        ctx->fleet_files_url = flb_sds_create_size(CALYPTIA_MAX_DIR_SIZE);
 
         if (ctx->fleet_files_url == NULL) {
             return -1;
@@ -1831,6 +1774,8 @@ static int get_calyptia_fleet_config(struct flb_in_calyptia_fleet_config *ctx)
             return -1;
         }
 #endif
+
+        flb_sds_destroy(cfgname);
     }
 
     return 0;
@@ -2194,7 +2139,7 @@ static int in_calyptia_fleet_init(struct flb_input_instance *in,
             return -1;
         }
 
-        ctx->config_dir = flb_sds_create_size(4096);
+        ctx->config_dir = flb_sds_create_size(CALYPTIA_MAX_DIR_SIZE);
 
         if (ctx->config_dir == NULL) {
             flb_plg_error(in, "unable to allocate config-dir.");
