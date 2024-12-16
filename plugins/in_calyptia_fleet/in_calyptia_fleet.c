@@ -525,11 +525,9 @@ static int parse_config_name_timestamp(struct flb_in_calyptia_fleet_config *ctx,
         return FLB_FALSE;
     }
 
-    /* Prevent undefined references due to use of readlink */
-#ifdef FLB_SYSTEM_WINDOWS
-    strncpy(realname, cfgpath, sizeof(realname)-1);
-#else
     switch (is_link(cfgpath)) {
+    /* Prevent undefined references due to use of readlink */
+#ifndef FLB_SYSTEM_WINDOWS
     case FLB_TRUE:
 
         len = readlink(cfgpath, realname, sizeof(realname));
@@ -538,6 +536,7 @@ static int parse_config_name_timestamp(struct flb_in_calyptia_fleet_config *ctx,
             return FLB_FALSE;
         }
         break;
+#endif /* FLB_SYSTEM_WINDOWS */
     case FLB_FALSE:
         strncpy(realname, cfgpath, sizeof(realname)-1);
         break;
@@ -545,7 +544,6 @@ static int parse_config_name_timestamp(struct flb_in_calyptia_fleet_config *ctx,
         flb_errno();
         return FLB_FALSE;
     }
-#endif
 
     fname = basename(realname);
     flb_plg_debug(ctx->ins, "parsing configuration timestamp from path: %s", fname);
@@ -1620,7 +1618,6 @@ static flb_sds_t get_fleet_id_from_header(struct flb_in_calyptia_fleet_config *c
         cf_hdr = flb_cf_create_from_file(NULL, hdr_fleet_config_filename(ctx));
 
         if (cf_hdr == NULL) {
-            flb_cf_destroy(cf_hdr);
             return NULL;
         }
 
@@ -1656,9 +1653,10 @@ static flb_sds_t get_fleet_id_from_header(struct flb_in_calyptia_fleet_config *c
             flb_cf_destroy(cf_hdr);
             return fleet_id;
         }
+
+        flb_cf_destroy(cf_hdr);
     }
 
-    flb_cf_destroy(cf_hdr);
     return NULL;
 }
 
