@@ -525,8 +525,13 @@ static int parse_config_name_timestamp(struct flb_in_calyptia_fleet_config *ctx,
         return FLB_FALSE;
     }
 
+    /* Prevent undefined references due to use of readlink */
+#ifdef FLB_SYSTEM_WINDOWS
+    strncpy(realname, cfgpath, sizeof(realname)-1);
+#else
     switch (is_link(cfgpath)) {
     case FLB_TRUE:
+
         len = readlink(cfgpath, realname, sizeof(realname));
 
         if (len > sizeof(realname)) {
@@ -540,6 +545,7 @@ static int parse_config_name_timestamp(struct flb_in_calyptia_fleet_config *ctx,
         flb_errno();
         return FLB_FALSE;
     }
+#endif
 
     fname = basename(realname);
     flb_plg_debug(ctx->ins, "parsing configuration timestamp from path: %s", fname);
