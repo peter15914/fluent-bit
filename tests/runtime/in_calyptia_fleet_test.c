@@ -134,7 +134,7 @@ static void mock_server_fleet_files_toml(mk_request_t *request, void *data)
 {
     tomlRequests++;
     /* Use a local buffer with correct size */
-    char *response = "{\"id\":\"test-id\"}";
+    char *response = "{\"id\":\"test_fleet_id\"}";
     size_t response_len = strlen(response);
 
     mk_http_status(request, 200);
@@ -148,7 +148,7 @@ static void mock_server_fleet_files_yaml(mk_request_t *request, void *data)
 {
     yamlRequests++;
     /* Use a local buffer with correct size */
-    char *response = "{\"id\":\"test-id\"}";
+    char *response = "{\"id\":\"test_fleet_id\"}";
     size_t response_len = strlen(response);
 
     mk_http_status(request, 200);
@@ -157,6 +157,20 @@ static void mock_server_fleet_files_yaml(mk_request_t *request, void *data)
     mk_http_send(request, response, response_len, NULL);
     mk_http_done(request);
 }
+
+static void mock_server_registration(mk_request_t *request, void *data)
+{
+    /* Use a local buffer with correct size */
+    const char *response = "{\"id\":\"test_fleet_id\"}";
+    size_t response_len = strlen(response); // Ensure size is accurate
+
+    mk_http_status(request, 200);
+    mk_http_header(request, "Content-Type", sizeof("Content-Type") - 1,
+                    "application/json", sizeof("application/json") - 1);
+    mk_http_send(request, response, response_len, NULL); // Use response_len
+    mk_http_done(request);
+}
+
 
 static void test_in_fleet_get_calyptia_files() {
     char tmp[256] = {0};
@@ -181,6 +195,12 @@ static void test_in_fleet_get_calyptia_files() {
 
     sprintf(tmp, CALYPTIA_ENDPOINT_FLEET_CONFIG_YAML, t_ctx->ctx->fleet_id);
     ret = mk_vhost_handler(mock_ctx, vid, tmp, mock_server_fleet_files_yaml, NULL);
+    TEST_CHECK(ret == 0);
+
+    ret = mk_vhost_handler(mock_ctx, vid, "/v1/agents", mock_server_registration, NULL);
+    TEST_CHECK(ret == 0);
+
+    ret = mk_vhost_handler(mock_ctx, vid, "/v1/agents/test_fleet_id", mock_server_registration, NULL);
     TEST_CHECK(ret == 0);
 
     ret = mk_start(mock_ctx);
@@ -233,6 +253,12 @@ static void test_in_fleet_get_calyptia_files() {
     TEST_CHECK(ret == 0);
     TEST_CHECK(tomlRequests == 1);
     TEST_CHECK(yamlRequests == 1);
+
+    /* Cleanup */
+    flb_stop(ctx);
+    flb_destroy(ctx);
+    mk_stop(mock_ctx);
+    mk_destroy(mock_ctx);
 
     cleanup_test_context(t_ctx);
 }
