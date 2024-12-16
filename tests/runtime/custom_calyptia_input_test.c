@@ -307,6 +307,7 @@ static void test_calyptia_config_format() {
     TEST_MSG("fleet_config_legacy_format changed expected=%s got=%s", expectedValue, value);
     TEST_CHECK(value && strcasecmp(value, expectedValue) == 0);
 
+    flb_free(expectedValue);
     cleanup_test_context(t_ctx);
 }
 

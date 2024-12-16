@@ -17,8 +17,8 @@
  *  limitations under the License.
  */
 
-#ifndef FLB_IN_CALYPTIA_FLEET
-#define FLB_IN_CALYPTIA_FLEET
+#ifndef FLB_IN_CALYPTIA_FLEET_H
+#define FLB_IN_CALYPTIA_FLEET_H
 
 #include <fluent-bit/flb_sds.h>
 #include <fluent-bit/flb_reload.h>
@@ -81,4 +81,4 @@ static int get_calyptia_files(struct flb_in_calyptia_fleet_config *ctx,
 
 static int fleet_cur_chdir(struct flb_in_calyptia_fleet_config *ctx);
 
-#endif /* FLB_IN_CALYPTIA_FLEET */
+#endif /* FLB_IN_CALYPTIA_FLEET_H */

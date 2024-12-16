@@ -1655,7 +1655,7 @@ flb_sds_t fleet_config_get(struct flb_in_calyptia_fleet_config *ctx)
     flb_ctx_t *flb = flb_context_get();
     flb_sds_t fleet_id = NULL;
 
-    if( !ctx ) {
+    if (!ctx) {
         return NULL;
     }
 
