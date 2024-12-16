@@ -75,10 +75,6 @@ flb_sds_t fleet_config_filename(struct flb_in_calyptia_fleet_config *ctx, char *
 #define old_fleet_config_filename(a) fleet_config_filename((a), "old")
 #define hdr_fleet_config_filename(a) fleet_config_filename((a), "header")
 
-int get_calyptia_files(struct flb_in_calyptia_fleet_config *ctx,
-                              const char *url,
-                              time_t timestamp);
-
-int fleet_cur_chdir(struct flb_in_calyptia_fleet_config *ctx);
+int get_calyptia_fleet_config(struct flb_in_calyptia_fleet_config *ctx);
 
 #endif /* FLB_IN_CALYPTIA_FLEET_H */

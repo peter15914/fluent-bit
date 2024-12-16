@@ -1,15 +1,12 @@
+/* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+
 #include <fluent-bit.h>
 #include <fluent-bit/calyptia/calyptia_constants.h>
 #include "flb_tests_runtime.h"
 #include "../../plugins/in_calyptia_fleet/in_calyptia_fleet.h"
 
 flb_sds_t fleet_config_filename(struct flb_in_calyptia_fleet_config *ctx, char *fname);
-
-int get_calyptia_files(struct flb_in_calyptia_fleet_config *ctx,
-                              const char *url,
-                              time_t timestamp);
-
-int fleet_cur_chdir(struct flb_in_calyptia_fleet_config *ctx);
+int get_calyptia_fleet_config(struct flb_in_calyptia_fleet_config *ctx);
 
 /* Test context structure */
 struct test_context {
@@ -71,6 +68,7 @@ static void cleanup_test_context(struct test_context *t_ctx)
 
         if (t_ctx->ctx->fleet_name) flb_free(t_ctx->ctx->fleet_name);
         if (t_ctx->ctx->machine_id) flb_free(t_ctx->ctx->machine_id);
+        if (t_ctx->ctx->fleet_files_url) flb_free(t_ctx->ctx->fleet_files_url);
 
         if (t_ctx->ctx->ins) flb_free(t_ctx->ctx->ins);
         flb_free(t_ctx->ctx);
@@ -84,7 +82,7 @@ static void cleanup_test_context(struct test_context *t_ctx)
     flb_free(t_ctx);
 }
 
-static void test_in_fleet_toml_format() {
+static void test_in_fleet_format() {
     struct test_context *t_ctx = init_test_context();
     TEST_CHECK(t_ctx != NULL);
 
@@ -98,33 +96,26 @@ static void test_in_fleet_toml_format() {
     TEST_MSG("fleet_config_filename expected=%s got=%s", expectedValue, value);
     TEST_CHECK(value && strcmp(value, expectedValue) == 0);
     flb_sds_destroy(value);
-
-    cleanup_test_context(t_ctx);
-}
-
-static void test_in_fleet_yaml_format() {
-    struct test_context *t_ctx = init_test_context();
-    TEST_CHECK(t_ctx != NULL);
+    value = NULL;
 
     /* Ensure we create YAML files if configured to do so */
     t_ctx->ctx->fleet_config_legacy_format = FLB_FALSE;
 
-    char expectedValue[CALYPTIA_MAX_DIR_SIZE];
-    int ret = sprintf(expectedValue, "%s/%s/%s/test.yaml", FLEET_DEFAULT_CONFIG_DIR, t_ctx->ctx->machine_id, t_ctx->ctx->fleet_name);
+    ret = sprintf(expectedValue, "%s/%s/%s/test.yaml", FLEET_DEFAULT_CONFIG_DIR, t_ctx->ctx->machine_id, t_ctx->ctx->fleet_name);
     TEST_CHECK(ret > 0);
 
-    flb_sds_t value = fleet_config_filename( t_ctx->ctx, "test" );
+    value = fleet_config_filename( t_ctx->ctx, "test" );
     TEST_CHECK(value != NULL);
     TEST_MSG("fleet_config_filename expected=%s got=%s", expectedValue, value);
     TEST_CHECK(value && strcmp(value, expectedValue) == 0);
     flb_sds_destroy(value);
+    value = NULL;
 
     cleanup_test_context(t_ctx);
 }
 
 /* Define test list */
 TEST_LIST = {
-    {"in_calyptia_fleet_toml_format", test_in_fleet_toml_format},
-    {"in_calyptia_fleet_yaml_format", test_in_fleet_yaml_format},
+    {"in_calyptia_fleet_format", test_in_fleet_format},
     {NULL, NULL}
 };

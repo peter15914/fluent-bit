@@ -60,6 +60,10 @@
 
 #define DEFAULT_MAX_HTTP_BUFFER_SIZE "10485760"
 
+static int fleet_cur_chdir(struct flb_in_calyptia_fleet_config *ctx);
+static int get_calyptia_files(struct flb_in_calyptia_fleet_config *ctx,
+                              time_t timestamp);
+
 #ifndef FLB_SYSTEM_WINDOWS
 
 static int is_link(const char *path) {
@@ -1664,7 +1668,7 @@ flb_sds_t fleet_config_get(struct flb_in_calyptia_fleet_config *ctx)
         return NULL;
     }
 
-    buf = flb_sds_create_size(2048);
+    buf = flb_sds_create_size(CALYPTIA_MAX_DIR_SIZE);
 
     if (!buf) {
         return NULL;
@@ -1754,7 +1758,7 @@ hdrname_error:
     return rc;
 }
 
-static int get_calyptia_fleet_config(struct flb_in_calyptia_fleet_config *ctx)
+int get_calyptia_fleet_config(struct flb_in_calyptia_fleet_config *ctx)
 {
     flb_sds_t cfgname;
     flb_sds_t cfgnewname;
@@ -1804,7 +1808,7 @@ static int get_calyptia_fleet_config(struct flb_in_calyptia_fleet_config *ctx)
 
     /* new file created! */
     if (ret == 1) {
-        get_calyptia_files(ctx, ctx->fleet_files_url, time_last_modified);
+        get_calyptia_files(ctx, time_last_modified);
 
         cfgname = time_fleet_config_filename(ctx, time_last_modified);
 
@@ -1926,7 +1930,7 @@ static int fleet_mkdir(struct flb_in_calyptia_fleet_config *ctx, time_t timestam
     return ret;
 }
 
-int fleet_cur_chdir(struct flb_in_calyptia_fleet_config *ctx)
+static int fleet_cur_chdir(struct flb_in_calyptia_fleet_config *ctx)
 {
     flb_sds_t fleetcurdir;
     int ret;
@@ -2117,14 +2121,13 @@ static int create_fleet_files(struct flb_in_calyptia_fleet_config *ctx,
     return 0;
 }
 
-int get_calyptia_files(struct flb_in_calyptia_fleet_config *ctx,
-                              const char *url,
+static int get_calyptia_files(struct flb_in_calyptia_fleet_config *ctx,
                               time_t timestamp)
 {
     struct flb_http_client *client;
     int ret = -1;
 
-    if (ctx == NULL || url == NULL) {
+    if (ctx == NULL || ctx->fleet_files_url == NULL) {
         return -1;
     }
 
