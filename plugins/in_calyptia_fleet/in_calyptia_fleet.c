@@ -180,6 +180,11 @@ static flb_sds_t generate_base_fleet_directory(struct flb_in_calyptia_fleet_conf
         }
     }
 
+    /* Ensure we have a valid value */
+    if (ctx->config_dir == NULL) {
+        ctx->config_dir = FLEET_DEFAULT_CONFIG_DIR;
+    }
+
     if (ctx->fleet_name != NULL) {
         return flb_sds_printf(fleet_dir, "%s" PATH_SEPARATOR "%s" PATH_SEPARATOR "%s",
                               ctx->config_dir, ctx->machine_id, ctx->fleet_name);
@@ -188,7 +193,7 @@ static flb_sds_t generate_base_fleet_directory(struct flb_in_calyptia_fleet_conf
                           ctx->config_dir, ctx->machine_id, ctx->fleet_id);
 }
 
-static flb_sds_t fleet_config_filename(struct flb_in_calyptia_fleet_config *ctx, char *fname)
+flb_sds_t fleet_config_filename(struct flb_in_calyptia_fleet_config *ctx, char *fname)
 {
     flb_sds_t cfgname = NULL;
     flb_sds_t ret;
@@ -1921,7 +1926,7 @@ static int fleet_mkdir(struct flb_in_calyptia_fleet_config *ctx, time_t timestam
     return ret;
 }
 
-static int fleet_cur_chdir(struct flb_in_calyptia_fleet_config *ctx)
+int fleet_cur_chdir(struct flb_in_calyptia_fleet_config *ctx)
 {
     flb_sds_t fleetcurdir;
     int ret;
@@ -2112,7 +2117,7 @@ static int create_fleet_files(struct flb_in_calyptia_fleet_config *ctx,
     return 0;
 }
 
-static int get_calyptia_files(struct flb_in_calyptia_fleet_config *ctx,
+int get_calyptia_files(struct flb_in_calyptia_fleet_config *ctx,
                               const char *url,
                               time_t timestamp)
 {

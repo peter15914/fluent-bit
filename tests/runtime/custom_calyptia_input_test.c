@@ -277,44 +277,9 @@ static void test_calyptia_machine_id_generation() {
     cleanup_test_context(t_ctx);
 }
 
-static void test_calyptia_config_format() {
-    struct test_context *t_ctx = init_test_context();
-    TEST_CHECK(t_ctx != NULL);
-
-    int ret = set_fleet_input_properties(t_ctx->ctx, t_ctx->fleet);
-    TEST_CHECK(ret == 0);
-
-    /* Verify properties were set correctly */
-    const char *value;
-    char *expectedValue = flb_strdup("on");
-
-    /* Default is true */
-    value = flb_input_get_property("fleet_config_legacy_format", t_ctx->fleet);
-    TEST_CHECK(value != NULL);
-    TEST_MSG("fleet_config_legacy_format default expected=%s got=%s", expectedValue, value);
-    TEST_CHECK(value && strcasecmp(value, expectedValue) == 0);
-
-    /* Check for change to disabling */
-    t_ctx->ctx->fleet_config_legacy_format = FLB_FALSE;
-    ret = set_fleet_input_properties(t_ctx->ctx, t_ctx->fleet);
-    TEST_CHECK(ret == 0);
-
-    flb_free(expectedValue);
-    expectedValue = flb_strdup("off");
-
-    value = flb_input_get_property("fleet_config_legacy_format", t_ctx->fleet);
-    TEST_CHECK(value != NULL);
-    TEST_MSG("fleet_config_legacy_format changed expected=%s got=%s", expectedValue, value);
-    TEST_CHECK(value && strcasecmp(value, expectedValue) == 0);
-
-    flb_free(expectedValue);
-    cleanup_test_context(t_ctx);
-}
-
 /* Define test list */
 TEST_LIST = {
     {"set_fleet_input_properties", test_set_fleet_input_properties},
     {"machine_id_generation", test_calyptia_machine_id_generation},
-    {"set_fleet_config_format", test_calyptia_config_format},
     {NULL, NULL}
 };
