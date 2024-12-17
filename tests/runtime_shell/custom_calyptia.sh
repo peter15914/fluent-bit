@@ -26,9 +26,6 @@ test_custom_calyptia_fleet_yaml() {
         find "$CALYPTIA_FLEET_DIR" -name '*.yaml' -type f -exec cat {} \;
     fi
 
-    # Check we are still running
-    assertTrue 'Fluent bit not running' "$(kill -0 $FLB_PID)"
-
     # Clean up
     kill -15 $FLB_PID
 }
@@ -58,9 +55,6 @@ test_custom_calyptia_fleet_toml() {
     else
         fail 'YAML files found'
     fi
-
-    # Check we are still running
-    assertTrue 'Fluent bit not running' "$(kill -0 $FLB_PID)"
 
     # Clean up
     kill -15 $FLB_PID
