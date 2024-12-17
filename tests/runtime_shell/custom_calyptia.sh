@@ -9,7 +9,7 @@ test_custom_calyptia_fleet_yaml() {
     rm -rf "$CALYPTIA_FLEET_DIR"
 
     # Dry-run to check it is valid
-    if $FLB_BIN -c "$FLB_RUNTIME_SHELL_CONF/custom_calyptia_fleet.conf" --dry-run; then
+    if ! $FLB_BIN -c "$FLB_RUNTIME_SHELL_CONF/custom_calyptia_fleet.conf" --dry-run; then
         fail 'Dry run failed'
     fi
 
@@ -22,10 +22,12 @@ test_custom_calyptia_fleet_yaml() {
     # Check we have YAML files
     if find "$CALYPTIA_FLEET_DIR" -name '*.yaml' -type f -exec false {} +; then
         fail 'No YAML files found'
+    else
+        find "$CALYPTIA_FLEET_DIR" -name '*.yaml' -type f -exec cat {} \;
     fi
 
     # Check we are still running
-    assertTrue 'Fluent bit not running' "[ kill -0 $FLB_PID ]"
+    assertTrue 'Fluent bit not running' "$(kill -0 $FLB_PID)"
 
     # Clean up
     kill -15 $FLB_PID
@@ -40,7 +42,7 @@ test_custom_calyptia_fleet_toml() {
     rm -rf "$CALYPTIA_FLEET_DIR"
 
     # Dry-run to check it is valid
-    if $FLB_BIN -c "$FLB_RUNTIME_SHELL_CONF/custom_calyptia_fleet.conf" --dry-run; then
+    if ! $FLB_BIN -c "$FLB_RUNTIME_SHELL_CONF/custom_calyptia_fleet.conf" --dry-run; then
         fail 'Dry run failed'
     fi
 
@@ -51,12 +53,14 @@ test_custom_calyptia_fleet_toml() {
     sleep 30
 
     # Check we have no YAML files
-    if ! find "$CALYPTIA_FLEET_DIR" -name '*.yaml' -type f -exec false {} +; then
+    if find "$CALYPTIA_FLEET_DIR" -name '*.yaml' -type f -exec false {} +; then
+        echo 'No YAML files found'
+    else
         fail 'YAML files found'
     fi
 
     # Check we are still running
-    assertTrue 'Fluent bit not running' "[ kill -0 $FLB_PID ]"
+    assertTrue 'Fluent bit not running' "$(kill -0 $FLB_PID)"
 
     # Clean up
     kill -15 $FLB_PID
