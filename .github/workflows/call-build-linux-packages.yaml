@@ -105,8 +105,8 @@ jobs:
   call-build-linux-packages:
     name: ${{ matrix.distro }} package build and stage to S3
     environment: ${{ inputs.environment }}
-    # Ensure for OSS Fluent Bit repo we enable usage of Actuated runners for ARM builds, for forks it should keep existing ubuntu-latest usage.
-    runs-on: ${{ (contains(matrix.distro, 'arm' ) && (github.repository == 'fluent/fluent-bit') && 'actuated-arm64-8cpu-16gb') || 'ubuntu-latest' }}
+    # Ensure for OSS Fluent Bit repo we enable usage of Actuated runners for ARM builds, for forks it should keep existing usage.
+    runs-on: ${{ (contains(matrix.distro, 'arm' ) && (github.repository == 'fluent/fluent-bit') && 'actuated-arm64-8cpu-16gb') || 'ubuntu-22.04' }}
     permissions:
       contents: read
     strategy:
@@ -214,7 +214,7 @@ jobs:
     name: Create repo metadata in S3
     # Only upload for staging
     if: inputs.environment == 'staging'
-    # Need to use 18.04 as 20.04 has no createrepo available
+    # Need to use 22.04 as 20.04 has no createrepo available
     runs-on: ubuntu-22.04
     environment: ${{ inputs.environment }}
     needs:
