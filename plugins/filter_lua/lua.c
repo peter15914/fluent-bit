@@ -112,6 +112,7 @@ static int cb_lua_init(struct flb_filter_instance *f_ins,
     (void) data;
     struct lua_filter *ctx;
     struct flb_luajit *lj;
+    struct flb_lua_func_info info = {0};
 
     /* Create context */
     ctx = lua_config_create(f_ins, config);
@@ -161,11 +162,54 @@ static int cb_lua_init(struct flb_filter_instance *f_ins,
         return -1;
     }
 
-
+    /* check if the function is valid */
     if (flb_lua_is_valid_func(ctx->lua->state, ctx->call) != FLB_TRUE) {
         flb_plg_error(ctx->ins, "function %s is not found", ctx->call);
         lua_config_destroy(ctx);
         return -1;
+    }
+
+    /* retrieve function information */
+    ret = flb_lua_get_func_info(ctx->lua->state, ctx->call, &info);
+    if (ret != 0) {
+        lua_config_destroy(ctx);
+        return -1;
+    }
+
+    /* check API version requirements */
+    if (ctx->api_version == LUA_API_V1) {
+        /*
+         * API v1 function prototype
+         * -------------------------
+         *   function test_v1(tag, timestamp, body)
+         */
+        if (info.params != 3) {
+            flb_plg_error(ctx->ins,
+                          "Fluent Bit Lua script API v1 expects 3 arguments in the "
+                          "callback function, prototype: '"
+                          "function test(tag, timestamp, body)', "
+                          "but '%s' expects %i parameters.",
+                          ctx->call, info.params);
+            lua_config_destroy(ctx);
+            return -1;
+        }
+    }
+    else if (ctx->api_version == LUA_API_V2) {
+        /*
+         * API v2 function prototype
+         * -------------------------
+         *   function test_v2(tag, timestamp, metadata, body)
+         */
+        if (info.params != 4) {
+            flb_plg_error(ctx->ins,
+                          "Fluent Bit Lua script API v2 expects 4 arguments in the "
+                          "callback function, prototype: '"
+                          "function test(tag, timestamp, metadata, body)', "
+                          "but '%s' expects %i parameters.",
+                          ctx->call, info.params);
+            lua_config_destroy(ctx);
+            return -1;
+        }
     }
 
     /* Initialize packing buffer */
@@ -589,7 +633,10 @@ static int cb_lua_filter(const void *data, size_t bytes,
             lua_pushnumber(ctx->lua->state, ts);
         }
 
-        /* Metadata: on v1, logs metadata is not set, however in v2 it is */
+        /*
+         * Metadata: on v1, logs metadata is not set, however in v2 it is,
+         * push the metadata content into the stack
+         */
         if (ctx->api_version == LUA_API_V2) {
             flb_lua_pushmsgpack(ctx->lua->state, log_event.metadata);
         }
