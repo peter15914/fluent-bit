@@ -51,6 +51,64 @@ void flb_lua_pushtimetable(lua_State *l, struct flb_time *tm)
     lua_settable(l, -3);
 }
 
+/* Retrieve information from a Lua function */
+int flb_lua_get_func_info(lua_State *lua, char *func, struct flb_lua_func_info *info)
+{
+    if (!info) {
+        return -1;
+    }
+
+    lua_getglobal(lua, "require");
+    lua_pushstring(lua, "jit.util");
+
+    if (lua_pcall(lua, 1, 1, 0) != LUA_OK) {
+        flb_error("cannot load jit.util: %s", lua_tostring(lua, -1));
+        lua_pop(lua, 1);
+        return -1;
+    }
+
+    /* Push the jit.util.funcinfo function */
+    lua_getfield(lua, -1, "funcinfo");
+    if (!lua_isfunction(lua, -1)) {
+        flb_error("'funcinfo' is not a function in jit.util");
+        lua_pop(lua, 2);  /* pop 'funcinfo' 'jit.util' */
+        return -1;
+    }
+
+    /* Push the target function */
+    lua_getglobal(lua, func);
+    if (!lua_isfunction(lua, -1)) {
+        flb_error("the function '%s' is not valid", func);
+        lua_pop(lua, 1);
+        return -1;
+    }
+
+    /* call jit.util.funcinfo(func) */
+    if (lua_pcall(lua, 1, 1, 0) != LUA_OK) {
+        flb_error("cannot call funcinfo: %s", lua_tostring(lua, -1));
+        lua_pop(lua, 1);
+        return -1;
+    }
+
+    /* get the 'params' and 'isvararg' fields from the result */
+    lua_getfield(lua, -1, "params");
+    lua_getfield(lua, -2, "isvararg");
+
+    if (!lua_isnumber(lua, -2) || !lua_isboolean(lua, -1)) {
+        flb_error("failed to retrieve valid function info.");
+        /* clean up: 'params', 'isvararg', 'funcinfo' table, and 'jit.util' */
+        lua_pop(lua, 4);
+        return -1;
+    }
+
+    info->params = lua_tointeger(lua, -2);
+    info->is_variadic = lua_toboolean(lua, -1);
+
+    /* clean up: funcinfo table + fields + jit.util */
+    lua_pop(lua, 4);
+    return 0;
+}
+
 int flb_lua_is_valid_func(lua_State *lua, flb_sds_t func)
 {
     int ret = FLB_FALSE;
