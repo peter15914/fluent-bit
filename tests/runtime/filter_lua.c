@@ -23,6 +23,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <fluent-bit/flb_pack.h>
+#include <fluent-bit/flb_log_event_decoder.h>
+
 #include "flb_tests_runtime.h"
 
 #define TMP_LUA_PATH "a.lua"
@@ -939,8 +942,8 @@ void flb_test_invalid_metatable(void)
     flb_input_set(ctx, in_ffd, "tag", "test", NULL);
     TEST_CHECK(in_ffd >= 0);
 
-    /* Lib output */
-    out_ffd = flb_output(ctx, (char *) "lib", (void *)&cb_data);
+    /* Lib output (configured to receive a chunk )*/
+    out_ffd = flb_output(ctx, (char *) "lib", (void *) &cb_data);
     TEST_CHECK(out_ffd >= 0);
     flb_output_set(ctx, out_ffd,
                    "match", "test",
@@ -948,6 +951,174 @@ void flb_test_invalid_metatable(void)
 
     ret = flb_start(ctx);
     TEST_CHECK(ret==0);
+
+    ret = flb_lib_push(ctx, in_ffd, input, strlen(input));
+    if (!TEST_CHECK(ret != -1)) {
+        TEST_MSG("flb_lib_push error");
+    }
+    flb_time_msleep(1500); /* waiting flush */
+
+    ret = get_output_num();
+    if (!TEST_CHECK(ret > 0)) {
+        TEST_MSG("error. no output");
+    }
+
+    /* clean up */
+    flb_lib_free(output);
+    delete_script();
+
+    flb_stop(ctx);
+    flb_destroy(ctx);
+}
+
+static char *get_log_metadata(void *chunk, size_t size)
+{
+    int ret;
+    char *json;
+    struct flb_log_event         log_event;
+    struct flb_log_event_decoder log_decoder;
+
+    ret = flb_log_event_decoder_init(&log_decoder, chunk, size);
+    TEST_CHECK(ret == FLB_EVENT_DECODER_SUCCESS);
+
+    /* record */
+    flb_log_event_decoder_next(&log_decoder, &log_event);
+
+    /* convert log body to json */
+    json = flb_msgpack_to_json_str(1024, log_event.metadata);
+
+    flb_log_event_decoder_destroy(&log_decoder);
+    return json;
+}
+
+static char *get_log_body(void *chunk, size_t size)
+{
+    int ret;
+    char *json;
+    struct flb_log_event         log_event;
+    struct flb_log_event_decoder log_decoder;
+
+    ret = flb_log_event_decoder_init(&log_decoder, chunk, size);
+    TEST_CHECK(ret == FLB_EVENT_DECODER_SUCCESS);
+
+    /* record */
+    flb_log_event_decoder_next(&log_decoder, &log_event);
+
+    /* convert log body to json */
+    json = flb_msgpack_to_json_str(1024, log_event.body);
+
+    flb_log_event_decoder_destroy(&log_decoder);
+    return json;
+}
+
+static int cb_check_log_meta_and_body(void *chunk, size_t size, void *data)
+{
+    int ret;
+    int num = get_output_num();
+    char *expected_body = "{\"body_test\":\"ok\"}";
+    char *expected_metadata = "{\"meta_test\":\"ok\"}";
+    char *json;
+
+    /* Log metadata */
+    json = get_log_metadata(chunk, size);
+    TEST_CHECK(json != NULL);
+
+    ret = strcmp(json, expected_metadata);
+    TEST_CHECK(ret == 0);
+    if (ret != 0) {
+        flb_error("metadata mismatch:");
+        flb_error("  - Expected: '%s'", expected_metadata);
+        flb_error("  - Received: '%s'", json);
+    }
+    else {
+        printf("log metadata match: '%s'\n", json);
+    }
+
+    flb_free(json);
+
+    /* Log body */
+    json = get_log_body(chunk, size);
+    TEST_CHECK(json != NULL);
+
+    ret = strcmp(json, expected_body);
+    TEST_CHECK(ret == 0);
+    if (ret != 0) {
+        flb_error("logs mismatch:");
+        flb_error("  - Expected: '%s'", expected_body);
+        flb_error("  - Received: '%s'", json);
+    }
+    else {
+        printf("log body match: '%s'\n", json);
+    }
+    free(json);
+
+    pthread_mutex_lock(&result_mutex);
+    num_output++;
+    pthread_mutex_unlock(&result_mutex);
+
+    return 0;
+}
+
+void flb_test_log_metadata_api_v2()
+{
+    int ret;
+    flb_ctx_t *ctx;
+    int in_ffd;
+    int out_ffd;
+    int unused = 0;
+    int filter_ffd;
+    char *output = NULL;
+    char *input;
+    struct flb_lib_out_cb cb_data;
+
+    char *script_body = ""
+              "function test_v2(tag, timestamp, metadata, body)\n"
+              "  new_metadata = {}\n"
+              "  new_metadata['meta_test'] = 'ok'\n"
+              "  new_body = {}\n"
+              "  new_body['body_test'] = 'ok'\n"
+              "  return 2, timestamp, new_metadata, new_body\n"
+              "end\n";
+
+    clear_output_num();
+
+    /* Create context, flush every second (some checks omitted here) */
+    ctx = flb_create();
+    flb_service_set(ctx, "flush", FLUSH_INTERVAL, "grace", "1", NULL);
+
+    /* Prepare output callback context*/
+    cb_data.cb = cb_check_log_meta_and_body;
+    cb_data.data = NULL; /* expected output is inside the callback */
+
+    /* Lua filter */
+    filter_ffd = flb_filter(ctx, (char *) "lua", NULL);
+    TEST_CHECK(filter_ffd >= 0);
+    ret = flb_filter_set(ctx, filter_ffd,
+                         "match", "*",
+                         "api", "v2",
+                         "call", "test_v2",
+                         "code", script_body,
+                         NULL);
+
+    /* Input */
+    in_ffd = flb_input(ctx, (char *) "lib", NULL);
+    flb_input_set(ctx, in_ffd, "tag", "test", NULL);
+    TEST_CHECK(in_ffd >= 0);
+
+    /* Lib output (configured to receive a chunk )*/
+    out_ffd = flb_output(ctx, (char *) "lib", (void *) &cb_data);
+    TEST_CHECK(out_ffd >= 0);
+    flb_output_set(ctx, out_ffd,
+                   "match", "test",
+                   "format", "chunk",
+                   NULL);
+
+    ret = flb_start(ctx);
+    TEST_CHECK(ret==0);
+
+
+    /* set the input */
+    input = "[[1734839279, {\"test\": \"lua\"}], {\"key\":\"val\"}]";
 
     ret = flb_lib_push(ctx, in_ffd, input, strlen(input));
     if (!TEST_CHECK(ret != -1)) {
@@ -980,5 +1151,6 @@ TEST_LIST = {
     {"split_record", flb_test_split_record},
     {"empty_array", flb_test_empty_array},
     {"invalid_metatable", flb_test_invalid_metatable},
+    {"log_metadata_api_v2", flb_test_log_metadata_api_v2},
     {NULL, NULL}
 };
